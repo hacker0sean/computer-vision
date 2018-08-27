@@ -27,9 +27,11 @@ def conv(image, kernel):
     padded = np.pad(image, pad_width, mode='edge')
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.flip(np.flip(kernel, 0), 1)
+    for m in range(Hi):
+        for n in range(Wi):
+            out[m, n] =  np.sum(padded[m: m+Hk, n: n+Wk] * kernel)
     ### END YOUR CODE
-
     return out
 
 def gaussian_kernel(size, sigma):
@@ -50,9 +52,16 @@ def gaussian_kernel(size, sigma):
     """  
     
     kernel = np.zeros((size, size))
-
+    
     ### YOUR CODE HERE
-    pass
+    i = np.arange(size)
+    j = np.arange(size)
+    i = i.reshape((len(i), 1))
+    i = np.tile(i, (1, size))
+    j = np.tile(j, (size, 1))
+    k = size // 2
+    K = np.tile(k, (size, size))
+    kernel = np.exp(-(i**2 - 2*K*i + K**2 + j**2 - 2*K*j + K**2) / (2 * (sigma ** 2))) / (2 * np.pi * (sigma**2))
     ### END YOUR CODE
 
     return kernel
@@ -72,7 +81,10 @@ def partial_x(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.array([[0, 0, 0],
+                      [0.5, 0, -0.5],
+                      [0, 0, 0]])
+    out = conv(img, kernel)
     ### END YOUR CODE
 
     return out
@@ -92,7 +104,10 @@ def partial_y(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.array([[0, 0.5, 0],
+                      [0, 0, 0],
+                      [0, -0.5, 0]])
+    out = conv(img, kernel)
     ### END YOUR CODE
 
     return out
@@ -113,7 +128,11 @@ def gradient(img):
     theta = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    Gx = partial_x(img)
+    Gy = partial_y(img)
+    G = np.sqrt(Gx**2 + Gy**2)
+    theta = np.arctan2(Gy,  Gx)
+    
     ### END YOUR CODE
 
     return G, theta
@@ -139,7 +158,7 @@ def non_maximum_suppression(G, theta):
     theta = np.floor((theta + 22.5) / 45) * 45
 
     ### BEGIN YOUR CODE
-    pass
+
     ### END YOUR CODE
 
     return out
