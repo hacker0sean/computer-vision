@@ -1,5 +1,4 @@
 import numpy as np
-
 def conv(image, kernel):
     """ An implementation of convolution filter.
 
@@ -16,8 +15,7 @@ def conv(image, kernel):
     """
     Hi, Wi = image.shape
     Hk, Wk = kernel.shape
-    out = np.zeros((Hi, Wi))
-
+    out = np.zeros((Hi, Wi))    
     # For this assignment, we will use edge values to pad the images.
     # Zero padding will make derivatives at the image boundary very big,
     # whereas we want to ignore the edges at the boundary.
@@ -33,7 +31,6 @@ def conv(image, kernel):
             out[m, n] =  np.sum(padded[m: m+Hk, n: n+Wk] * kernel)
     ### END YOUR CODE
     return out
-
 def gaussian_kernel(size, sigma):
     """ Implementation of Gaussian Kernel.
     
@@ -131,8 +128,7 @@ def gradient(img):
     Gx = partial_x(img)
     Gy = partial_y(img)
     G = np.sqrt(Gx**2 + Gy**2)
-    theta = np.arctan2(Gy,  Gx)
-    
+    theta = (np.arctan2(Gy,  Gx) * 180 / np.pi + 180) % 360    
     ### END YOUR CODE
 
     return G, theta
@@ -155,12 +151,29 @@ def non_maximum_suppression(G, theta):
     out = np.zeros((H, W))
 
     # Round the gradient direction to the nearest 45 degrees
-    theta = np.floor((theta + 22.5) / 45) * 45
-
-    ### BEGIN YOUR CODE
-
-    ### END YOUR CODE
-
+    theta = (np.floor((theta + 22.5) / 45) * 45) % 360
+    pad = ((1, 1), (1, 1))
+    pad_G = np.pad(G, pad, 'constant')
+    ### BEGIN YOUR CODE 
+    for i in np.arange(H):
+        for j in np.arange(W):
+            t_theta = theta[i][j]
+            if t_theta == 0 or t_theta == 180:
+                p1 = pad_G[i+1, j+1-1]
+                p2 = pad_G[i+1, j+1+1]
+            elif t_theta == 45 or t_theta == 225:
+                p1 = pad_G[i+1+1, j+1+1]
+                p2 = pad_G[i+1-1, j+1-1]
+            elif t_theta == 90 or t_theta == 270:
+                p1 = pad_G[i+1-1, j+1]
+                p2 = pad_G[i+1+1, j+1]
+            elif t_theta == 135 or t_theta == 315:
+                p1 = pad_G[i+1-1, j+1+1]
+                p2 = pad_G[i+1+1, j+1-1]
+            else:
+                print('error')
+            if (G[i][j] > p1) and (G[i][j] > p2):
+                out[i][j] = G[i][j]
     return out
 
 def double_thresholding(img, high, low):
@@ -179,11 +192,13 @@ def double_thresholding(img, high, low):
             higher threshould and above the lower threshold.
     """
 
-    strong_edges = np.zeros(img.shape)
-    weak_edges = np.zeros(img.shape)
+    strong_edges = np.zeros(img.shape, dtype= bool)
+    weak_edges = np.zeros(img.shape, dtype=bool)
 
     ### YOUR CODE HERE
-    pass
+    strong_edges[img > high] = True
+    weak_edges[(img <= high) & (img > low)] = True
+
     ### END YOUR CODE
 
     return strong_edges, weak_edges
@@ -233,10 +248,20 @@ def link_edges(strong_edges, weak_edges):
 
     H, W = strong_edges.shape
     indices = np.stack(np.nonzero(strong_edges)).T
-    edges = np.zeros((H, W))
+    edges = strong_edges.copy()
 
     ### YOUR CODE HERE
-    pass
+    detect = strong_edges.copy()
+    for i in indices:
+        neighbors = get_neighbors(i[0],i[1], H, W)
+        while len(neighbors) > 0:
+            neigh_pop = neighbors.pop(0)
+            if (weak_edges[neigh_pop[0]][neigh_pop[1]] != 0) & (detect[neigh_pop[0]][neigh_pop[1]] == 0):
+                neighbors.append(neigh_pop)
+                detect[neigh_pop[0]][neigh_pop[1]] = 1
+                edges[neigh_pop[0]][neigh_pop[1]] = 1
+                for j in (get_neighbors(neigh_pop[0], neigh_pop[1], H, W)):
+                    neighbors.append(j)
     ### END YOUR CODE
 
     return edges
@@ -254,7 +279,22 @@ def canny(img, kernel_size=5, sigma=1.4, high=20, low=15):
         edge: numpy array of shape(H, W)
     """
     ### YOUR CODE HERE
-    pass
+    # step 1: smoothing
+    kernel = gaussian_kernel(kernel_size, sigma)
+    img = conv(img, kernel)
+    
+    # step 2: gradient
+    G, theta = gradient(img)
+
+    # step 3:non max suppression
+    img = non_maximum_suppression(G, theta)
+
+    # step 4:double thresholding
+    strong_edges, weak_edges = double_thresholding(img, high, low)
+
+    # step 5:edge tracking
+    edge = link_edges(strong_edges, weak_edges)
+
     ### END YOUR CODE
 
     return edge
@@ -294,7 +334,10 @@ def hough_transform(img):
     # Find rho corresponding to values in thetas
     # and increment the accumulator in the corresponding coordiate.
     ### YOUR CODE HERE
-    pass
+    accu_thetas = range(180)
+    for i in np.arange(len(xs)):
+        accu_rhos = list(np.ceil(xs[i] * cos_t + ys[i] * sin_t + diag_len).astype(int))
+        accumulator[accu_rhos,accu_thetas] += 1 
     ### END YOUR CODE
 
     return accumulator, rhos, thetas
