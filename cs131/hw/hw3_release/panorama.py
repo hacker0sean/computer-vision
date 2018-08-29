@@ -3,7 +3,7 @@ from skimage import filters
 from skimage.util.shape import view_as_blocks
 from scipy.spatial.distance import cdist
 from scipy.ndimage.filters import convolve
-
+import numpy as np
 from utils import pad, unpad
 
 
@@ -32,9 +32,53 @@ def harris_corners(img, window_size=3, k=0.04):
 
     dx = filters.sobel_v(img)
     dy = filters.sobel_h(img)
-
     ### YOUR CODE HERE
-    pass
+    # derivatives = np.empty((H,W))
+    #for i in np.arange(H):
+    #    for j in np.arange(W):
+    #        derivatives[i][j] = np.array(([dx_2[i][j], dxdy[i][j]], [dxdy[i][j], dy_2[i][j]]))
+    dx_2 = dx**2
+    dy_2 = dy**2
+    dxdy = dx*dy
+    A = convolve(dx_2, window)
+    B = convolve(dy_2, window)
+    C = convolve(dxdy, window)
+    for i in np.arange(H):
+        for j in np.arange(W):
+            M = np.array(([A[i][j], C[i][j]], [C[i][j], B[i][j]]))
+            response[i][j] = np.linalg.det(M) - (np.matrix.trace(np.matrix(M)) ** 2) * k
+   
+            
+#    for i in np.arange(H):
+#        for j in np.arange(W):
+#            img_min_i = max(0, i-1)
+#            img_min_j = max(0, j-1)
+#            img_max_i = min(i+1, H-1)
+#            img_max_j = min(j+1, W-1)
+#            if i == 0:
+#                window_min_i = 1
+#            else:
+#                window_min_i = 0
+#            if j == 0:
+#                window_min_j = 1
+#            else:
+#                window_min_j = 0
+#            if i == H-1:
+#                window_max_i = window_size-2
+#            else:
+#                window_max_i = window_size-1
+#            if j == W-1:
+#                window_max_j = window_size-2
+#            else:
+#                window_max_j = window_size-1
+#            temp_window = window[window_min_i : window_max_i+1, window_min_j : window_max_j+1]
+#           # print(temp_window.shape)
+#            temp_ix_2 = np.sum(temp_window * dx_2[img_min_i : img_max_i+1, img_min_j : img_max_j+1])
+#           # print(img_min_j, img_max_j+1)
+#            temp_iy_2 = np.sum(temp_window * dy_2[img_min_i : img_max_i+1, img_min_j :img_max_j+1]) 
+#            temp_ixiy = np.sum(temp_window * dxdy[img_min_i :img_max_i+1, img_min_j :img_max_j+1]) 
+#            M = np.array(([temp_ix_2, temp_ixiy], [temp_ixiy, temp_iy_2]))
+#            response[i][j] = np.linalg.det(M) - (np.matrix.trace(np.matrix(M)) ** 2) * k
     ### END YOUR CODE
 
     return response
@@ -60,7 +104,12 @@ def simple_descriptor(patch):
     """
     feature = []
     ### YOUR CODE HERE
-    pass
+    h, w  = patch.shape
+    patch_std = np.std(patch)
+    if patch_std == 0:
+        patch_std = 1
+    patch = (patch - np.mean(patch)) / patch_std
+    feature = patch.reshape((h*w,))
     ### END YOUR CODE
     return feature
 
@@ -110,7 +159,14 @@ def match_descriptors(desc1, desc2, threshold=0.5):
     dists = cdist(desc1, desc2)
 
     ### YOUR CODE HERE
-    pass
+    min_dists = np.argmin(dists, axis=1)
+    sort_dists = np.sort(dists, axis=1)
+    for i in np.arange(N):
+        closest = sort_dists[i][0]
+        second_closest = sort_dists[i][1]
+        if closest < threshold * second_closest:
+            matches.append([i, min_dists[i]])
+    matches = np.array(matches)
     ### END YOUR CODE
     
     return matches
@@ -136,7 +192,7 @@ def fit_affine_matrix(p1, p2):
     p2 = pad(p2)
 
     ### YOUR CODE HERE
-    pass
+    H, residuals, rank, s = np.linalg.lstsq(p2, p1, rcond=None)
     ### END YOUR CODE
 
     # Sometimes numerical issues cause least-squares to produce the last
@@ -178,7 +234,30 @@ def ransac(keypoints1, keypoints2, matches, n_iters=200, threshold=20):
 
     # RANSAC iteration start
     ### YOUR CODE HERE
-    pass
+    for o in np.arange(n_iters):
+        # step1:
+        random_select_matches = matches[np.random.choice(np.arange(N), n_samples, replace=False), :]
+        
+        # step2:
+        p1 = keypoints1[random_select_matches[:, 0]]
+        p2 = keypoints2[random_select_matches[:, 1]]
+        H = fit_affine_matrix(p1, p2)
+        
+        # step3:
+        diff = matched2.dot(H) - matched1
+        temp_inliers = np.linalg.norm(diff, axis=1) ** 2 < threshold
+        temp_n_inliers = temp_inliers.sum()
+        
+        # step4:
+        if temp_n_inliers > n_inliers:
+            n_inliers = temp_n_inliers
+            max_inliers = temp_inliers
+    
+    max_matches= matches[max_inliers, :]
+    p1 = keypoints1[max_matches[:, 0]]
+    p2 = keypoints2[max_matches[:, 1]]
+    H = fit_affine_matrix(p1, p2)
+
     ### END YOUR CODE
     return H, matches[max_inliers]
 
