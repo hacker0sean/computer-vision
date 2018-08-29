@@ -12,14 +12,12 @@ def extract_features(imgs, feature_fns, verbose=False):
   single images, apply all feature functions to all images, concatenating the
   feature vectors for each image and storing the features for all images in
   a single matrix.
-
   Inputs:
   - imgs: N x H X W X C array of pixel data for N images.
   - feature_fns: List of k feature functions. The ith feature function should
     take as input an H x W x D array and return a (one-dimensional) array of
     length F_i.
   - verbose: Boolean; if true, print progress.
-
   Returns:
   An array of shape (N, F_1 + ... + F_k) where each column is the concatenation
   of all features for a single image.
@@ -54,7 +52,6 @@ def extract_features(imgs, feature_fns, verbose=False):
       print('Done extracting features for %d / %d images' % (i, num_images))
 
   return imgs_features
-
 
 def rgb2gray(rgb):
   """Convert RGB image to grayscale
@@ -118,9 +115,10 @@ def hog_feature(im):
     # select magnitudes for those orientations
     cond2 = temp_ori > 0
     temp_mag = np.where(cond2, grad_mag, 0)
-    orientation_histogram[:,:,i] = uniform_filter(temp_mag, size=(cx, cy))[cx/2::cx, cy/2::cy].T
+    orientation_histogram[:,:,i] = uniform_filter(temp_mag, size=(cx, cy))[cx//2::cx, cy//2::cy].T
   
   return orientation_histogram.ravel()
+
 
 
 def color_histogram_hsv(im, nbin=10, xmin=0, xmax=255, normalized=True):
