@@ -1,7 +1,17 @@
 pass
 from cs231n.layers import *
 from cs231n.fast_layers import *
+def affine_bn_forward(x, w, b, gamma, beta, bn_param):
+    out, fc_cache = affine_forward(x, w, b)
+    out, norm_cache = batchnorm_forward(out, gamma, beta, bn_param)
+    cache = (fc_cache, norm_cache)
+    return out, cache
 
+def affine_bn_backward(dout, cache):
+    fc_cache, _, norm_cache = cache
+    dout, dgamma, dbeta = batchnorm_backward_alt(dout, norm_cache)
+    dx, dw, db = affine_backward(dout, fc_cache)
+    return dx, dw, db, dgamma, dbeta
 
 def affine_relu_forward(x, w, b):
     """
@@ -30,6 +40,19 @@ def affine_relu_backward(dout, cache):
     dx, dw, db = affine_backward(da, fc_cache)
     return dx, dw, db
 
+def affine_bn_relu_forward(x, w, b, gamma, beta, bn_param):
+    out, fc_cache = affine_forward(x, w, b)
+    out, norm_cache = batchnorm_forward(out, gamma, beta, bn_param)
+    out, relu_cache = relu_forward(out)
+    cache = (fc_cache, norm_cache, relu_cache)
+    return out, cache
+
+def affine_bn_relu_backward(dout, cache):
+    fc_cache, norm_cache, relu_cache = cache
+    dout = relu_backward(dout, relu_cache)
+    dout, dgamma, dbeta = batchnorm_backward_alt(dout, norm_cache)
+    dx, dw, db = affine_backward(dout, fc_cache)
+    return dx, dw, db, dgamma, dbeta
 
 def conv_relu_forward(x, w, b, conv_param):
     """
