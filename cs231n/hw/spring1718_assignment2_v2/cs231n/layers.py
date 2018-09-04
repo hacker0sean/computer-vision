@@ -335,7 +335,12 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # transformations you could perform, that would enable you to copy over   #
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
-    pass
+    N, D = x.shape
+    sample_mean = np.mean(x, axis=1).reshape(N, 1)
+    sample_var = (np.std(x, axis=1) ** 2).reshape(N, 1)
+    xhat = (x - sample_mean) / np.sqrt(sample_var + eps)
+    out = xhat * gamma + beta
+    cache = (gamma, beta, sample_mean, sample_var, x, xhat, eps)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -366,7 +371,16 @@ def layernorm_backward(dout, cache):
     # implementation of batch normalization. The hints to the forward pass    #
     # still apply!                                                            #
     ###########################################################################
-    pass
+    m = dout.shape[1]
+    gamma, beta, sample_mean, sample_var, x, x_hat, eps = cache
+    reverse_delta = 1 / np.sqrt(sample_var + eps)
+    x_center = x - sample_mean
+    dx_hat = dout * gamma
+    d_delta_2 = np.sum(dx_hat * (x_center) * (-0.5) * ((sample_var + eps) ** (-1.5)), keepdims=True, axis=1)
+    d_mean_b = d_delta_2*((-2) * np.mean(x_center, axis=1, keepdims=True)) + np.sum(dx_hat * (-1) * reverse_delta , axis=1, keepdims=True)
+    dx = dx_hat * reverse_delta + d_delta_2 * 2 * (x_center) / m + d_mean_b / m
+    dgamma = np.sum(dout * x_hat, axis=0)
+    dbeta = np.sum(dout, axis=0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -399,7 +413,7 @@ def dropout_forward(x, dropout_param):
     output; this might be contrary to some sources, where it is referred to
     as the probability of dropping a neuron output.
     """
-    p, mode = dropout_param['p'], dropout_param['mode']
+    prob, mode = dropout_param['p'], dropout_param['mode']
     if 'seed' in dropout_param:
         np.random.seed(dropout_param['seed'])
 
@@ -411,7 +425,8 @@ def dropout_forward(x, dropout_param):
         # TODO: Implement training phase forward pass for inverted dropout.   #
         # Store the dropout mask in the mask variable.                        #
         #######################################################################
-        pass
+        mask = np.random.choice([0, 1], size=x.shape, p=[prob, 1-prob])
+        out = mask * x / prob
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -419,7 +434,7 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # TODO: Implement the test phase forward pass for inverted dropout.   #
         #######################################################################
-        pass
+        out = x
         #######################################################################
         #                            END OF YOUR CODE                         #
         #######################################################################
@@ -446,7 +461,7 @@ def dropout_backward(dout, cache):
         #######################################################################
         # TODO: Implement training phase backward pass for inverted dropout   #
         #######################################################################
-        pass
+        dx = dout * mask  / dropout_param['p']
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
