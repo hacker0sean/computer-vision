@@ -149,7 +149,8 @@ class CaptioningRNN(object):
         #step 3:
         if self.cell_type == "rnn":
             h, rnn_cache  = rnn_forward(x, initial_h, Wx, Wh, b)
-
+        elif self.cell_type == "lstm":
+            h, lstm_cache  = lstm_forward(x, initial_h, Wx, Wh, b)
         #step 4:
         scores, affine_cache = temporal_affine_forward(h ,W_vocab , b_vocab)
 
@@ -160,6 +161,8 @@ class CaptioningRNN(object):
 
         if self.cell_type == "rnn":
             dx, dh0, dWx, dWh, db = rnn_backward(dx, rnn_cache)
+        elif self.cell_type == "lstm":
+            dx, dh0, dWx, dWh, db = lstm_backward(dx, lstm_cache)
 
         dW = word_embedding_backward(dx, embed_cache)
 
@@ -210,7 +213,6 @@ class CaptioningRNN(object):
         W_embed = self.params['W_embed']
         Wx, Wh, b = self.params['Wx'], self.params['Wh'], self.params['b']
         W_vocab, b_vocab = self.params['W_vocab'], self.params['b_vocab']
-
         ###########################################################################
         # TODO: Implement test-time sampling for the model. You will need to      #
         # initialize the hidden state of the RNN by applying the learned affine   #
@@ -235,7 +237,21 @@ class CaptioningRNN(object):
         # NOTE: we are still working over minibatches in this function. Also if   #
         # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
-        pass
+        prev_word = np.array(N * [self._start]) 
+        prev_h = features.dot(W_proj) + b_proj
+        if self.cell_type == "lstm":
+            prev_c = np.zeros(prev_h.shape)
+        for i in range(max_length):
+            embed = W_embed[prev_word]
+            if self.cell_type == "rnn":
+                next_h, _ = rnn_step_forward(embed, prev_h, Wx, Wh, b) 
+            elif self.cell_type == "lstm":
+                next_h, prev_c,  _ = lstm_step_forward(embed, prev_h, prev_c, Wx, Wh, b)
+            prev_h = next_h
+            x_flat = next_h.dot(W_vocab) + b_vocab
+            select = np.argmax(x_flat, axis=1)
+            captions[:, i] = select 
+            prev_word = select
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
